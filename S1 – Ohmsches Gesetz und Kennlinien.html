@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S1 – Ohmsches Gesetz und Kennlinien</title>
+<style>
+  :root { --blau:#1f5fa8; --grau:#f2f4f7; --rand:#cfd6de; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; }
+  body { font-family: Arial, Helvetica, sans-serif; background:#fff; color:#222; -webkit-text-size-adjust:100%; }
+  header { background:var(--blau); color:#fff; padding:10px 16px; }
+  header h1 { margin:0; font-size:1.25rem; }
+  header p { margin:2px 0 0; font-size:.9rem; opacity:.9; }
+  main { padding:12px; max-width:1400px; margin:auto; }
+  .box { background:var(--grau); border:1px solid var(--rand); border-radius:10px; padding:12px; margin-bottom:12px; }
+  .box h2 { margin:0 0 8px; font-size:1.05rem; color:var(--blau); }
+  label { display:block; margin:6px 0 2px; font-weight:bold; font-size:.92rem; }
+  select { width:100%; padding:8px; font-size:1rem; }
+  input[type=range] { width:100%; }
+  canvas { width:100%; background:#fff; border:1px solid var(--rand); border-radius:6px; display:block; touch-action:pan-y; }
+  .anzeige { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-top:8px; }
+  .anzeige div { background:#fff; border:1px solid var(--rand); border-radius:8px; padding:6px; text-align:center; }
+  .anzeige span { display:block; font-size:.8rem; color:#555; }
+  .anzeige b { font-size:1.1rem; }
+  .reglerzeile { display:flex; align-items:center; gap:8px; }
+  .reglerzeile input[type=range] { flex:1; }
+  button { background:var(--blau); color:#fff; border:none; padding:9px 14px; border-radius:6px; cursor:pointer; font-size:.95rem; margin:6px 6px 0 0; }
+  button.sek { background:#7b8794; }
+  button.klein { margin:0; padding:8px 12px; min-width:44px; }
+  button.kurve { background:#2e8b57; }
+  button.skala.warn { background:#e67e22; box-shadow:0 0 0 3px rgba(230,126,34,.35); }
+  button:hover { filter:brightness(1.1); }
+  .hinweis { font-size:.82rem; color:#555; margin-top:4px; }
+  .check { display:flex; align-items:center; gap:8px; margin:6px 0; font-size:.93rem; }
+  .check label { margin:0; font-weight:normal; }
+  table { border-collapse:collapse; width:100%; font-size:.9rem; background:#fff; }
+  th, td { border:1px solid var(--rand); padding:4px 6px; text-align:center; }
+  th { background:#e4e9ef; }
+  .tabwrap { max-height:230px; overflow:auto; }
+  .info { font-size:.9rem; background:#fff8e1; border:1px solid #f0d98a; border-radius:8px; padding:8px; margin-top:8px; }
+  ul.aufg { margin:4px 0 0 18px; padding:0; font-size:.93rem; }
+  ul.aufg li { margin-bottom:6px; }
+  .legende { display:flex; flex-wrap:wrap; gap:12px; font-size:.85rem; margin-top:6px; }
+  .legende i { display:inline-block; width:22px; height:4px; vertical-align:middle; margin-right:4px; }
+  .modus { font-size:.85rem; margin-top:6px; padding:4px 8px; border-radius:6px; display:inline-block; }
+  .modus.real { background:#e3f1e8; color:#1d6b3f; }
+  .modus.ideal { background:#fde8e6; color:#9a2b20; }
+  nav#tabs { display:none; }
+
+  body.desktop main { display:grid; grid-template-columns: minmax(340px, 42%) 1fr; gap:16px; align-items:start; }
+  body.desktop .tabwrap { max-height:260px; }
+
+  body.mobile header h1 { font-size:1.05rem; }
+  body.mobile header p { display:none; }
+  body.mobile main { padding:8px 8px 80px; }
+  body.mobile .tabpane { display:none; }
+  body.mobile .tabpane.aktiv { display:block; }
+  body.mobile .box { padding:10px; }
+  body.mobile button { padding:12px 16px; font-size:1rem; }
+  body.mobile button.klein { padding:12px 14px; min-width:52px; }
+  body.mobile .check { padding:6px 0; }
+  body.mobile .check input { width:22px; height:22px; }
+  body.mobile input[type=range] { height:36px; }
+  body.mobile .anzeige b { font-size:1rem; }
+  body.mobile .tabwrap { max-height:none; }
+  body.mobile nav#tabs { display:flex; position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:2px solid var(--blau); z-index:10; }
+  body.mobile nav#tabs button { flex:1; margin:0; border-radius:0; background:#fff; color:var(--blau); font-weight:bold; padding:14px 4px; }
+  body.mobile nav#tabs button.aktiv { background:var(--blau); color:#fff; }
+</style>
+</head>
+<body class="desktop">
+<header>
+  <h1>S1 – Ohmsches Gesetz und Kennlinien</h1>
+  <p>Untersuche, bei welchen Bauteilen Spannung U und Stromstärke I proportional zueinander sind.</p>
+</header>
+
+<main>
+  <section>
+    <div class="box tabpane aktiv" data-tab="versuch">
+      <h2>Versuchsaufbau</h2>
+      <label for="bauteil">Bauteil auswählen</label>
+      <select id="bauteil"></select>
+
+      <label for="spannung">Spannung am Netzgerät: <span id="uText">0,0 V</span></label>
+      <div class="reglerzeile">
+        <button class="klein" id="btnMinus" aria-label="Spannung verringern">−</button>
+        <input type="range" id="spannung" min="-12" max="12" step="0.1" value="0">
+        <button class="klein" id="btnPlus" aria-label="Spannung erhöhen">+</button>
+      </div>
+
+      <canvas id="schaltung"></canvas>
+
+      <div class="anzeige">
+        <div><span>Spannung U (Messgerät)</span><b id="aU">0,00 V</b></div>
+        <div><span>Stromstärke I (Messgerät)</span><b id="aI">0,000 A</b></div>
+        <div><span>R = U / I</span><b id="aR">–</b></div>
+      </div>
+      <div class="check"><input type="checkbox" id="chkMessmodus" checked><label for="chkMessmodus">Messmodus (leichte Messabweichungen)</label></div>
+      <span class="modus real" id="modusAnzeige"></span><br>
+      <button id="btnMessen">Messwert aufnehmen</button>
+      <button id="btnAblesen" class="sek">Neu ablesen</button>
+      <button id="btnLoeschen" class="sek">Messwerte löschen</button>
+      <div class="info" id="bauteilInfo"></div>
+    </div>
+
+    <div class="box tabpane" data-tab="aufgaben">
+      <h2>Aufgaben</h2>
+      <ul class="aufg">
+        <li><b>Vorhersage:</b> Skizziere vorab auf Papier, wie die Kennlinie des Bauteils aussehen wird.</li>
+        <li>Nimm für jedes Bauteil mindestens 8 Messwerte auf (auch negative Spannungen). Lies bei Bedarf mehrmals ab und beobachte die Streuung.</li>
+        <li>Liegt ein Punkt außerhalb des Diagramms, drücke „Skalierung anpassen".</li>
+        <li>Beurteile anhand der Messpunkte: Welche Bauteile sind <b>Ohmsche Leiter</b>? Begründe mit Kennlinie und R-Werten.</li>
+        <li>Blende danach die <b>erwartete Kennlinie</b> ein und vergleiche sie mit deinen Messpunkten und deiner Skizze.</li>
+        <li>Warum ändert sich der Widerstand von Glühlampe und Eisendraht? (Tipp: Temperatur)</li>
+        <li>Was passiert bei der Diode, wenn du die Spannung umpolst?</li>
+        <li>Schalte den Messmodus aus. Was ändert sich, und warum sind echte Messwerte nie ganz exakt?</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="box tabpane" data-tab="versuch">
+      <h2>Kennlinie: I in Abhängigkeit von U</h2>
+      <button class="kurve" id="btnKurve">Erwartete Kennlinie einblenden</button>
+      <button class="skala" id="btnSkalaI">Skalierung anpassen</button>
+      <button class="sek" id="btnZoomI">Ansicht zurücksetzen</button>
+      <div class="check"><input type="checkbox" id="chkAlle"><label for="chkAlle">Alle Bauteile vergleichen</label></div>
+      <canvas id="plotIU"></canvas>
+      <div class="hinweis">Touchscreen: Mit zwei Fingern zoomen und verschieben.</div>
+      <div class="legende" id="legende"></div>
+    </div>
+
+    <div class="box tabpane" data-tab="auswertung">
+      <h2>Widerstand R in Abhängigkeit von der Spannung U</h2>
+      <button class="skala" id="btnSkalaR">Skalierung anpassen</button>
+      <button class="sek" id="btnZoomR">Ansicht zurücksetzen</button>
+      <canvas id="plotRU"></canvas>
+      <div class="hinweis">Touchscreen: Mit zwei Fingern zoomen und verschieben.</div>
+    </div>
+
+    <div class="box tabpane" data-tab="auswertung">
+      <h2>Messwerttabelle</h2>
+      <div class="tabwrap">
+        <table>
+          <thead><tr><th>Nr.</th><th>Bauteil</th><th>U in V</th><th>I in A</th><th>R = U/I in Ω</th></tr></thead>
+          <tbody id="tabelle"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav id="tabs">
+  <button data-tab="versuch" class="aktiv">Versuch</button>
+  <button data-tab="auswertung">Auswertung</button>
+  <button data-tab="aufgaben">Aufgaben</button>
+</nav>
+
+<script>
+const mq = window.matchMedia('(min-width: 800px) and (min-height: 520px)');
+let aktiverTab = 'versuch';
+
+function zeigeTab(name) {
+  aktiverTab = name;
+  document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('aktiv', p.dataset.tab === name));
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('aktiv', b.dataset.tab === name));
+  window.scrollTo(0, 0);
+  update();
+}
+function setzeModus() {
+  const desktop = mq.matches;
+  document.body.classList.toggle('desktop', desktop);
+  document.body.classList.toggle('mobile', !desktop);
+  if (desktop) document.querySelectorAll('.tabpane').forEach(p => p.classList.add('aktiv'));
+  else zeigeTab(aktiverTab);
+  update();
+}
+document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => zeigeTab(b.dataset.tab)));
+if (mq.addEventListener) mq.addEventListener('change', setzeModus); else mq.addListener(setzeModus);
+window.addEventListener('resize', () => update());
+window.addEventListener('orientationchange', () => setTimeout(update, 200));
+
+function vorbereiten(cv, seitenverhaeltnis) {
+  const w = cv.clientWidth;
+  if (!w) return null;
+  const dpr = window.devicePixelRatio || 1;
+  const h = Math.round(w * seitenverhaeltnis);
+  const pw = Math.round(w * dpr), ph = Math.round(h * dpr);
+  if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
+  cv.style.height = h + 'px';
+  const g = cv.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { g, W: w, H: h, dpr };
+}
+const istMobil = () => document.body.classList.contains('mobile');
+
+// Messwert als feines diagonales Kreuz
+function kreuz(g, x, y, farbe) {
+  const s = 5;
+  g.strokeStyle = farbe; g.lineWidth = 1.2; g.lineCap = 'butt';
+  g.beginPath();
+  g.moveTo(x - s, y - s); g.lineTo(x + s, y + s);
+  g.moveTo(x - s, y + s); g.lineTo(x + s, y - s);
+  g.stroke();
+}
+
+// ---------- Zoomen und Verschieben mit zwei Fingern ----------
+// p = { view, base, area:{L,T,w,h}, redraw }  (view = null bedeutet Grundansicht)
+function zoombar(cv, p) {
+  let st = null;
+  const pos = t => { const r = cv.getBoundingClientRect(); return { x: t.clientX - r.left, y: t.clientY - r.top }; };
+  const info = e => {
+    const a = pos(e.touches[0]), b = pos(e.touches[1]);
+    return { mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, d: Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)) };
+  };
+  cv.addEventListener('touchstart', e => {
+    if (e.touches.length === 2 && p.base && p.area) {
+      const i = info(e), v = p.view || p.base, A = p.area;
+      st = { d: i.d, v: { x0: v.x0, x1: v.x1, y0: v.y0, y1: v.y1 },
+             px: v.x0 + (i.mx - A.L) / A.w * (v.x1 - v.x0),
+             py: v.y1 - (i.my - A.T) / A.h * (v.y1 - v.y0) };
+      e.preventDefault();
+    } else st = null;
+  }, { passive: false });
+  cv.addEventListener('touchmove', e => {
+    if (!st || e.touches.length !== 2) return;
+    e.preventDefault();
+    const i = info(e), A = p.area, B = p.base;
+    const s = i.d / st.d;
+    const bw = B.x1 - B.x0, bh = B.y1 - B.y0;
+    const c = Math.min(Math.max(((st.v.x1 - st.v.x0) / s) / bw, 0.01), 2);
+    const W = bw * c, H = bh * c;
+    const fx = (i.mx - A.L) / A.w, fy = (i.my - A.T) / A.h;
+    const x0 = st.px - fx * W, y1 = st.py + fy * H;
+    p.view = { x0, x1: x0 + W, y0: y1 - H, y1 };
+    p.redraw();
+  }, { passive: false });
+  const ende = e => { if (e.touches.length < 2) st = null; };
+  cv.addEventListener('touchend', ende);
+  cv.addEventListener('touchcancel', ende);
+}
+
+// ---------- Bauteilmodelle ----------
+const UMAX = 12;
+function rErwaermt(R0, c, U) { return (R0 + Math.sqrt(R0*R0 + 4*R0*c*U*U)) / 2; }
+function diodeStrom(U) {
+  const Is = 1e-10, nVt = 1.5 * 0.02585, Rs = 100;
+  if (U <= 0) return -Is * (1 - Math.exp(U / nVt));
+  let lo = 0, hi = U / Rs;
+  for (let k = 0; k < 60; k++) {
+    const mid = (lo + hi) / 2;
+    const f = U - mid * Rs - nVt * Math.log(mid / Is + 1);
+    if (f > 0) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+const bauteile = [
+  { id:'konst', name:'Konstantandraht 10 Ω', farbe:'#1f5fa8', symbol:'widerstand',
+    strom: U => U / 10,
+    info:'Konstantan ändert seinen Widerstand bei Erwärmung kaum. Es verhält sich wie ein <b>Ohmscher Leiter</b>.' },
+  { id:'eisen', name:'Eisendraht (erwärmt sich)', farbe:'#d9822b', symbol:'widerstand',
+    strom: U => U / rErwaermt(10, 0.05, U),
+    info:'Der Draht wird bei größerer Stromstärke heiß. Sein Widerstand steigt mit der Temperatur, also ist er bei <b>nicht konstanter Temperatur</b> kein Ohmscher Leiter.' },
+  { id:'lampe', name:'Glühlampe 12 V / 6 W', farbe:'#c0392b', symbol:'lampe',
+    strom: U => U / rErwaermt(5, 0.633, U),
+    info:'Der Wolframfaden glüht bei etwa 2500 °C. Kalt hat er nur etwa ein Viertel des Widerstands wie im Betrieb.' },
+  { id:'diode', name:'Silizium-Diode (mit 100 Ω Schutzwiderstand)', farbe:'#2e8b57', symbol:'diode',
+    strom: diodeStrom,
+    info:'Die Diode leitet nur in Durchlassrichtung und erst ab etwa 0,6 V. In Sperrrichtung fließt praktisch kein Strom.' }
+];
+
+let aktuell = bauteile[0];
+let messwerte = [];
+let U = 0;
+let mess = { U: 0, I: 0 };
+let messmodus = true;
+let zeigeKurve = false;
+let punktPos = 0;
+
+const fmt = (x, d) => x.toFixed(d).replace('.', ',');
+const rnd = a => (Math.random() * 2 - 1) * a;
+function kurve(b) {
+  const pts = [];
+  for (let u = -UMAX; u <= UMAX + 1e-9; u += 0.1) pts.push([u, b.strom(u)]);
+  return pts;
+}
+
+// Messmodus = Zufallsabweichung und Rundung, Idealmodus = exakte Werte
+function ablesen() {
+  const Iw = aktuell.strom(U);
+  if (messmodus) {
+    mess.U = Math.round((U * (1 + rnd(0.01)) + rnd(0.02)) * 100) / 100;
+    mess.I = Math.round((Iw * (1 + rnd(0.015)) + rnd(0.0005)) * 1000) / 1000;
+  } else {
+    mess.U = U;
+    mess.I = Iw;
+  }
+}
+const rText = (u, i) => Math.abs(u) < 0.05 ? '–' : Math.abs(i) < 0.001 ? null : u / i;
+const gueltig = (u, i) => Math.abs(u) >= 0.5 && Math.abs(i) >= 0.001;
+
+// ---------- Feste Skalierung ----------
+function niceStep(range, n) {
+  const raw = range / n, e = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / e;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * e;
+}
+const dec = st => st >= 1 ? 0 : Math.min(4, Math.ceil(-Math.log10(st) - 1e-9));
+function ticks(a, b, n) {
+  const st = niceStep(b - a, n), list = [];
+  for (let k = Math.ceil(a / st - 1e-9); k * st <= b + 1e-9; k++) list.push(k * st);
+  return { st, list };
+}
+const skala = { I:{ top:1.5, step:0.5 }, R:{ top:20, step:5 } };
+function setzeSkala(typ, max) {
+  max = Math.max(max * 1.1, 1e-4);
+  const st = niceStep(max, 4);
+  skala[typ].step = st;
+  skala[typ].top = Math.ceil(max / st - 1e-9) * st;
+}
+const pIU = { view:null, base:null, area:null, redraw:() => update() };
+const pRU = { view:null, base:null, area:null, redraw:() => update() };
+zoombar(document.getElementById('plotIU'), pIU);
+zoombar(document.getElementById('plotRU'), pRU);
+document.getElementById('btnZoomI').addEventListener('click', () => { pIU.view = null; update(); });
+document.getElementById('btnZoomR').addEventListener('click', () => { pRU.view = null; update(); });
+
+function passeSkalaAn() {
+  const alle = document.getElementById('chkAlle').checked;
+  const gezeigt = alle ? bauteile : [aktuell];
+  let imax = Math.abs(mess.I), rmax = 0;
+  if (gueltig(mess.U, mess.I) && mess.U / mess.I > 0) rmax = mess.U / mess.I;
+  messwerte.forEach(m => {
+    if (gezeigt.includes(m.b)) imax = Math.max(imax, Math.abs(m.I));
+    if (m.b === aktuell && gueltig(m.U, m.I) && m.U / m.I > 0) rmax = Math.max(rmax, m.U / m.I);
+  });
+  if (zeigeKurve) {
+    gezeigt.forEach(b => kurve(b).forEach(p => { imax = Math.max(imax, Math.abs(p[1])); }));
+    kurve(aktuell).forEach(p => { if (gueltig(p[0], p[1])) rmax = Math.max(rmax, Math.min(1000, p[0] / p[1])); });
+  }
+  if (imax <= 0) imax = 1.5;
+  if (rmax <= 0) rmax = 20;
+  setzeSkala('I', imax);
+  setzeSkala('R', rmax);
+  pIU.view = null; pRU.view = null;
+  update();
+}
+
+// ---------- Bedienung ----------
+const sel = document.getElementById('bauteil');
+bauteile.forEach(b => { const o = document.createElement('option'); o.value = b.id; o.textContent = b.name; sel.appendChild(o); });
+sel.addEventListener('change', () => { aktuell = bauteile.find(b => b.id === sel.value); ablesen(); update(); });
+
+const slider = document.getElementById('spannung');
+slider.addEventListener('input', e => { U = parseFloat(e.target.value); ablesen(); update(); });
+function schritt(d) {
+  U = Math.max(-UMAX, Math.min(UMAX, Math.round((U + d) * 10) / 10));
+  slider.value = U; ablesen(); update();
+}
+document.getElementById('btnMinus').addEventListener('click', () => schritt(-0.1));
+document.getElementById('btnPlus').addEventListener('click', () => schritt(0.1));
+document.getElementById('chkAlle').addEventListener('change', update);
+document.getElementById('chkMessmodus').addEventListener('change', e => { messmodus = e.target.checked; ablesen(); update(); });
+document.getElementById('btnSkalaI').addEventListener('click', passeSkalaAn);
+document.getElementById('btnSkalaR').addEventListener('click', passeSkalaAn);
+document.getElementById('btnKurve').addEventListener('click', () => {
+  zeigeKurve = !zeigeKurve;
+  document.getElementById('btnKurve').textContent = zeigeKurve ? 'Erwartete Kennlinie ausblenden' : 'Erwartete Kennlinie einblenden';
+  update();
+});
+document.getElementById('btnAblesen').addEventListener('click', () => { ablesen(); update(); });
+document.getElementById('btnMessen').addEventListener('click', () => {
+  messwerte.push({ b: aktuell, U: mess.U, I: mess.I });
+  ablesen();
+  update();
+  const tw = document.querySelector('.tabwrap'); tw.scrollTop = tw.scrollHeight;
+});
+document.getElementById('btnLoeschen').addEventListener('click', () => { messwerte = []; update(); });
+
+// ---------- Diagramm I(U) ----------
+function zeichnePlotIU() {
+  const cv = document.getElementById('plotIU');
+  const c = vorbereiten(cv, istMobil() ? 0.95 : 0.55);
+  if (!c) return;
+  const { g, W, H } = c;
+  const kl = W < 480;
+  const L = kl ? 56 : 72, R = 14, T = 14, B = 44;
+  const fs = kl ? 12 : 13;
+  g.clearRect(0, 0, W, H);
+  const alle = document.getElementById('chkAlle').checked;
+  const gezeigt = alle ? bauteile : [aktuell];
+  const ym = skala.I.top;
+  const aw = W - L - R, ah = H - T - B;
+
+  const base = { x0:-UMAX, x1:UMAX, y0:-ym, y1:ym };
+  const v = pIU.view || base;
+  pIU.base = base; pIU.area = { L, T, w:aw, h:ah };
+  const X = u => L + (u - v.x0) / (v.x1 - v.x0) * aw;
+  const Y = i => T + (v.y1 - i) / (v.y1 - v.y0) * ah;
+
+  const ausserhalb = Math.abs(mess.I) > ym || messwerte.some(m => gezeigt.includes(m.b) && Math.abs(m.I) > ym);
+  document.getElementById('btnSkalaI').classList.toggle('warn', ausserhalb);
+
+  g.font = fs + 'px Arial'; g.fillStyle = '#333'; g.strokeStyle = '#e1e5ea'; g.lineWidth = 1;
+  const tx = ticks(v.x0, v.x1, 6), ty = ticks(v.y0, v.y1, 6);
+  tx.list.forEach(u => {
+    g.beginPath(); g.moveTo(X(u), T); g.lineTo(X(u), H - B); g.stroke();
+    g.textAlign = 'center'; g.fillText(fmt(u, dec(tx.st)), X(u), H - B + 16);
+  });
+  ty.list.forEach(i => {
+    g.beginPath(); g.moveTo(L, Y(i)); g.lineTo(W - R, Y(i)); g.stroke();
+    g.textAlign = 'right'; g.fillText(fmt(i, dec(ty.st)), L - 5, Y(i) + 4);
+  });
+  g.strokeStyle = '#222'; g.lineWidth = 1.8;
+  if (Y(0) >= T && Y(0) <= H - B) { g.beginPath(); g.moveTo(L, Y(0)); g.lineTo(W - R, Y(0)); g.stroke(); }
+  if (X(0) >= L && X(0) <= W - R) { g.beginPath(); g.moveTo(X(0), T); g.lineTo(X(0), H - B); g.stroke(); }
+  g.strokeRect(L, T, aw, ah);
+  g.fillStyle = '#222'; g.textAlign = 'center';
+  g.fillText('U in V', (W + L) / 2, H - 10);
+  g.save(); g.translate(13, (H - B + T) / 2); g.rotate(-Math.PI / 2);
+  g.fillText('I in A', 0, 0); g.restore();
+
+  g.save();
+  g.beginPath(); g.rect(L, T, aw, ah); g.clip();
+  if (zeigeKurve) {
+    gezeigt.forEach(b => {
+      g.strokeStyle = b.farbe; g.lineWidth = b === aktuell ? 3 : 2;
+      g.beginPath();
+      kurve(b).forEach((p, k) => { k ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1])); });
+      g.stroke();
+    });
+  }
+  messwerte.forEach(m => { if (gezeigt.includes(m.b)) kreuz(g, X(m.U), Y(m.I), m.b.farbe); });
+  g.strokeStyle = '#000'; g.lineWidth = 2; g.fillStyle = '#fff';
+  g.beginPath(); g.arc(X(mess.U), Y(mess.I), 7, 0, 7); g.fill(); g.stroke();
+  g.restore();
+
+  if (ausserhalb && !pIU.view) {
+    g.fillStyle = 'rgba(230,126,34,.95)'; g.font = 'bold ' + fs + 'px Arial'; g.textAlign = 'left';
+    g.fillText('⚠ Punkt außerhalb: „Skalierung anpassen" drücken', L + 8, T + 18);
+  }
+  document.getElementById('legende').innerHTML = gezeigt.map(b => `<span><i style="background:${b.farbe}"></i>${b.name}</span>`).join('')
+    + '<span>○ aktuelle Anzeige &nbsp; ✕ Messpunkt</span>';
+}
+
+// ---------- Diagramm R(U) ----------
+function zeichnePlotRU() {
+  const cv = document.getElementById('plotRU');
+  const c = vorbereiten(cv, istMobil() ? 0.7 : 0.36);
+  if (!c) return;
+  const { g, W, H } = c;
+  const kl = W < 480;
+  const L = kl ? 52 : 70, R = 14, T = 12, B = 42;
+  const fs = kl ? 12 : 13;
+  g.clearRect(0, 0, W, H);
+  const ym = skala.R.top;
+  const aw = W - L - R, ah = H - T - B;
+
+  const base = { x0:-UMAX, x1:UMAX, y0:0, y1:ym };
+  const v = pRU.view || base;
+  pRU.base = base; pRU.area = { L, T, w:aw, h:ah };
+  const X = u => L + (u - v.x0) / (v.x1 - v.x0) * aw;
+  const Y = r => T + (v.y1 - r) / (v.y1 - v.y0) * ah;
+
+  const rM = gueltig(mess.U, mess.I) ? mess.U / mess.I : null;
+  const ausserhalb = (rM !== null && rM > ym) ||
+    messwerte.some(m => m.b === aktuell && gueltig(m.U, m.I) && m.U / m.I > ym);
+  document.getElementById('btnSkalaR').classList.toggle('warn', ausserhalb);
+
+  g.font = fs + 'px Arial'; g.strokeStyle = '#e1e5ea'; g.fillStyle = '#333'; g.lineWidth = 1;
+  const tx = ticks(v.x0, v.x1, 6), ty = ticks(v.y0, v.y1, 5);
+  tx.list.forEach(u => {
+    g.beginPath(); g.moveTo(X(u), T); g.lineTo(X(u), H - B); g.stroke();
+    g.textAlign = 'center'; g.fillText(fmt(u, dec(tx.st)), X(u), H - B + 16);
+  });
+  ty.list.forEach(r => {
+    g.beginPath(); g.moveTo(L, Y(r)); g.lineTo(W - R, Y(r)); g.stroke();
+    g.textAlign = 'right'; g.fillText(fmt(r, dec(ty.st)), L - 5, Y(r) + 4);
+  });
+  g.strokeStyle = '#222'; g.lineWidth = 1.8;
+  if (X(0) >= L && X(0) <= W - R) { g.beginPath(); g.moveTo(X(0), T); g.lineTo(X(0), H - B); g.stroke(); }
+  g.strokeRect(L, T, aw, ah);
+  g.fillStyle = '#222'; g.textAlign = 'center';
+  g.fillText('U in V', (W + L) / 2, H - 8);
+  g.save(); g.translate(13, (H - B + T) / 2); g.rotate(-Math.PI / 2); g.fillText('R in Ω', 0, 0); g.restore();
+
+  g.save();
+  g.beginPath(); g.rect(L, T, aw, ah); g.clip();
+  if (zeigeKurve) {
+    g.strokeStyle = aktuell.farbe; g.lineWidth = 3;
+    let offen = false; g.beginPath();
+    kurve(aktuell).forEach(p => {
+      if (gueltig(p[0], p[1]) && p[0] / p[1] > 0) {
+        const x = X(p[0]), y = Y(Math.min(p[0] / p[1], ym * 10));
+        offen ? g.lineTo(x, y) : g.moveTo(x, y); offen = true;
+      } else offen = false;
+    });
+    g.stroke();
+  }
+  messwerte.forEach(m => {
+    if (m.b !== aktuell || !gueltig(m.U, m.I)) return;
+    const r = m.U / m.I; if (r < 0) return;
+    kreuz(g, X(m.U), Y(r), m.b.farbe);
+  });
+  if (rM !== null && rM >= 0) {
+    g.strokeStyle = '#000'; g.lineWidth = 2; g.fillStyle = '#fff';
+    g.beginPath(); g.arc(X(mess.U), Y(rM), 7, 0, 7); g.fill(); g.stroke();
+  }
+  g.restore();
+
+  if (ausserhalb && !pRU.view) {
+    g.fillStyle = 'rgba(230,126,34,.95)'; g.font = 'bold ' + fs + 'px Arial'; g.textAlign = 'left';
+    g.fillText('⚠ Punkt außerhalb: „Skalierung anpassen" drücken', L + 8, T + 18);
+  }
+}
+
+// ---------- Schaltung ----------
+const sc = document.getElementById('schaltung');
+const X0 = 40, X1 = 300, Y0 = 45, Y1 = 185, UMF = 2 * ((X1 - X0) + (Y1 - Y0));
+function pfad(s) {
+  s = ((s % UMF) + UMF) % UMF;
+  const a = X1 - X0, b = Y1 - Y0;
+  if (s < a) return [X0 + s, Y0];
+  s -= a; if (s < b) return [X1, Y0 + s];
+  s -= b; if (s < a) return [X1 - s, Y1];
+  s -= a; return [X0, Y1 - s];
+}
+function symbol(sg, b) {
+  const cx = X1, cy = (Y0 + Y1) / 2;
+  sg.fillStyle = '#fff'; sg.strokeStyle = '#222'; sg.lineWidth = 2;
+  if (b.symbol === 'widerstand') {
+    sg.fillRect(cx - 12, cy - 28, 24, 56); sg.strokeRect(cx - 12, cy - 28, 24, 56);
+  } else if (b.symbol === 'lampe') {
+    sg.beginPath(); sg.arc(cx, cy, 24, 0, 7); sg.fill(); sg.stroke();
+    sg.beginPath(); sg.moveTo(cx - 17, cy - 17); sg.lineTo(cx + 17, cy + 17);
+    sg.moveTo(cx + 17, cy - 17); sg.lineTo(cx - 17, cy + 17); sg.stroke();
+    const I = Math.abs(b.strom(U)), h = Math.min(1, I / 0.5);
+    if (h > 0.02) { sg.fillStyle = `rgba(255,220,0,${0.15 + 0.6 * h})`; sg.beginPath(); sg.arc(cx, cy, 24 + 14 * h, 0, 7); sg.fill(); }
+  } else if (b.symbol === 'diode') {
+    sg.fillStyle = '#fff'; sg.beginPath();
+    sg.moveTo(cx - 18, cy - 24); sg.lineTo(cx + 18, cy - 24); sg.lineTo(cx, cy + 12); sg.closePath(); sg.fill(); sg.stroke();
+    sg.beginPath(); sg.moveTo(cx - 18, cy + 12); sg.lineTo(cx + 18, cy + 12); sg.stroke();
+  }
+}
+function messgeraet(sg, x, y, text) {
+  sg.fillStyle = '#fff'; sg.strokeStyle = '#222'; sg.lineWidth = 2;
+  sg.beginPath(); sg.arc(x, y, 20, 0, 7); sg.fill(); sg.stroke();
+  sg.fillStyle = '#222'; sg.font = 'bold 18px Arial'; sg.textAlign = 'center'; sg.fillText(text, x, y + 6);
+}
+let letzteZeit = performance.now();
+function zeichneSchaltung(now) {
+  const dt = Math.min(0.05, (now - letzteZeit) / 1000); letzteZeit = now;
+  const c = vorbereiten(sc, 0.5);
+  if (c) {
+    const sg = c.g, s = c.W / 460;
+    sg.setTransform(c.dpr * s, 0, 0, c.dpr * s, 0, 0);
+    const I = aktuell.strom(U);
+    punktPos += Math.tanh(I * 3) * 150 * dt;
+
+    sg.clearRect(0, 0, 460, 230);
+    sg.strokeStyle = '#222'; sg.lineWidth = 2.5;
+    const my = (Y0 + Y1) / 2;
+    sg.beginPath();
+    sg.moveTo(X0, 95); sg.lineTo(X0, Y0); sg.lineTo(X1, Y0); sg.lineTo(X1, my - 30);
+    sg.moveTo(X1, my + 30); sg.lineTo(X1, Y1); sg.lineTo(X0, Y1); sg.lineTo(X0, 135);
+    sg.stroke();
+    sg.lineWidth = 1.8; sg.beginPath();
+    sg.moveTo(X1, my - 30); sg.lineTo(390, my - 30); sg.lineTo(390, my - 20);
+    sg.moveTo(X1, my + 30); sg.lineTo(390, my + 30); sg.lineTo(390, my + 20);
+    sg.stroke();
+    messgeraet(sg, 390, my, 'V');
+    sg.lineWidth = 3; sg.strokeStyle = '#222'; sg.beginPath();
+    sg.moveTo(X0 - 22, 105); sg.lineTo(X0 + 22, 105);
+    sg.moveTo(X0 - 12, 125); sg.lineTo(X0 + 12, 125); sg.stroke();
+    sg.fillStyle = '#c0392b'; sg.font = 'bold 14px Arial'; sg.textAlign = 'left'; sg.fillText('+', X0 + 26, 106);
+    sg.fillStyle = '#1f5fa8'; sg.fillText('–', X0 + 26, 132);
+    sg.fillStyle = '#222'; sg.font = '12px Arial'; sg.fillText('Netzgerät', 2, 150);
+    messgeraet(sg, 170, Y0, 'A');
+    symbol(sg, aktuell);
+    sg.fillStyle = '#1f5fa8';
+    for (let k = 0; k < 20; k++) {
+      const p = pfad(punktPos + k * UMF / 20);
+      const imAmp = Math.abs(p[1] - Y0) < 1 && p[0] > 150 && p[0] < 190;
+      const imBauteil = Math.abs(p[0] - X1) < 1 && p[1] > my - 30 && p[1] < my + 30;
+      if (imAmp || imBauteil || (Math.abs(p[0] - X0) < 1 && p[1] > 95 && p[1] < 135)) continue;
+      sg.beginPath(); sg.arc(p[0], p[1], 4, 0, 7); sg.fill();
+    }
+    sg.fillStyle = '#555'; sg.font = '12px Arial'; sg.textAlign = 'left';
+    sg.fillText('Punkte zeigen die Ladungsbewegung (Geschwindigkeit ~ I)', 8, 222);
+  }
+  requestAnimationFrame(zeichneSchaltung);
+}
+
+function update() {
+  document.getElementById('uText').textContent = fmt(U, 1) + ' V';
+  document.getElementById('aU').textContent = fmt(mess.U, 2) + ' V';
+  document.getElementById('aI').textContent = fmt(mess.I, 3) + ' A';
+  const r = rText(mess.U, mess.I);
+  document.getElementById('aR').textContent = r === '–' ? '–' : r === null ? 'sehr groß (sperrt)' : fmt(r, 1) + ' Ω';
+  document.getElementById('bauteilInfo').innerHTML = aktuell.info;
+  const ma = document.getElementById('modusAnzeige');
+  ma.className = 'modus ' + (messmodus ? 'real' : 'ideal');
+  ma.textContent = messmodus ? 'Messmodus aktiv: Werte streuen leicht' : 'Idealmodus: exakte Werte ohne Messabweichung';
+
+  document.getElementById('tabelle').innerHTML = messwerte.map((m, k) => {
+    const rv = rText(m.U, m.I);
+    const rr = rv === '–' ? '–' : rv === null ? '∞' : fmt(rv, 1);
+    return `<tr><td>${k + 1}</td><td style="color:${m.b.farbe};font-weight:bold">${m.b.name.split(' (')[0]}</td><td>${fmt(m.U, 2)}</td><td>${fmt(m.I, 3)}</td><td>${rr}</td></tr>`;
+  }).join('');
+
+  zeichnePlotIU();
+  zeichnePlotRU();
+}
+
+ablesen();
+setzeModus();
+requestAnimationFrame(zeichneSchaltung);
+</script>
+</body>
+</html>
